@@ -1,0 +1,94 @@
+CREATE PROCEDURE [dbo].[SearchByFilters]
+	@conditions nvarchar (1000),
+	@category_name nvarchar(50)	
+as 
+
+CREATE TABLE #ad_filter -- table for id`s of advertisment
+(id bigint)
+
+ INSERT INTO #ad_filter (id)
+select id from Advertisement
+
+ create table #condition_table 
+	(id bigint IDENTITY(1,1),
+	property nvarchar(50),
+	value nvarchar(50))
+
+	
+
+	declare @conditionDelimeter nvarchar(1) = ',' --delimiter for parsing product properties
+	declare @valueDelimiter nvarchar(1) = ':'
+	declare @property nvarchar(50) 
+	declare @value nvarchar(50) 
+
+	
+declare @pos int = charindex(@conditionDelimeter, @conditions)
+declare @posvalue int 
+
+declare @con nvarchar(100)
+    
+while (@pos != 0) --parsing properties and values
+begin
+  
+    set @con = SUBSTRING(@conditions, 1, @pos-1)
+    
+	 set @posvalue  = charindex(@valueDelimiter, @con)
+	set @property = SUBSTRING(@con, 1, @posvalue-1)
+	set @posvalue = CHARINDEX(@valueDelimiter,@con)
+	set @con = SUBSTRING(@con, @posvalue, LEN(@con))
+	set @value = SUBSTRING(@con, 2, @posvalue+1)
+
+    insert into #condition_table (property,value) values(@property,@value)
+
+    
+    set @conditions = SUBSTRING(@conditions, @pos+1, LEN(@conditions))
+   
+    set @pos = CHARINDEX(@conditionDelimeter,@conditions)
+	end
+	
+	 
+
+declare @property_id bigint;
+declare @category_id bigint;
+
+
+set @category_id = (select id from Category
+where name = @category_name)
+
+
+
+declare @counter int = (select count(property) from #condition_table)
+
+	while (@counter != 0)
+	begin
+
+	set @property = (select property from #condition_table where id = @counter)
+	set @value = (select value from #condition_table where id = @counter)
+	set @property_id = (select id  from Property
+	where name = @property)
+
+	
+	
+
+	
+
+delete from #ad_filter --deleting from table superfluous products ids
+where id not in( 
+select  #ad_filter.id
+from #ad_filter
+inner join Value
+on Value.advertisement_id = #ad_filter.id and Value.value = @value
+inner join Category_Property on
+Category_Property.category_id = @category_id
+and Category_Property.property_id = @property_id
+
+ )
+
+ set @counter = @counter-1
+	end
+
+select * from Advertisement
+where id in (
+SELECT * FROM #ad_filter
+)
+--exec SearchByFilters 'color:white,producer:apple,','smartphone'
