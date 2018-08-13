@@ -1,0 +1,414 @@
+CREATE PROCEDURE [dbo].[AddAdvertisment]	
+	@product_name nvarchar(50) ,
+	@price money ,
+	@description nvarchar(1000) ,
+	@adress nvarchar(50) ,
+	@avaliable_amount int ,
+	@owner_user_id bigint	
+AS
+declare @date datetime = GETDATE ();
+INSERT INTO  [papa].[dbo].[Advertisement]
+([product_name],[price],[description],[is_active],[date_added],[adress],[avaliable_amount],[owner_user_id])
+VALUES (
+	@product_name,
+	@price,
+	@description,
+	1,
+	@date,
+	@adress,
+	@avaliable_amount,
+	@owner_user_id
+	);
+
+	--exec AddAdvertisment 'giroskuter xiaomi',560,'noviy','lviv',1,1
+GO
+/****** Object:  StoredProcedure [dbo].[AddPropertyValue]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[AddPropertyValue]	
+	@advertisment_id bigint,
+	@category_name nvarchar(50),
+	@property_name nvarchar(50),	
+	@value nvarchar(100)
+as
+
+declare @cp_id bigint;
+declare @property_id bigint;
+declare @category_id bigint;
+
+set @category_id = (select id from Category
+where name = @category_name)
+
+set @cp_id =  (select Category_Property.id
+from Category_Property, Property
+where Property.id = Category_Property.property_id
+and Property.name = @property_name
+and Category_Property.category_id = @category_id)
+
+
+
+insert into Value
+(category_property_id,advertisement_id,value)
+values(@cp_id,@advertisment_id,@value)
+GO
+/****** Object:  StoredProcedure [dbo].[AddToFavorites]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[AddToFavorites]
+	@advertisment_id bigint,
+	@user_id bigint
+as
+insert into FavoriteAd
+(user_id,advertisement_id)
+values(@advertisment_id,@user_id)
+
+GO
+/****** Object:  StoredProcedure [dbo].[AddUser]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[AddUser]	
+	@name nvarchar(50),
+	@login nvarchar(50),
+	@password nvarchar(50) ,
+	@surname nvarchar(50) ,
+	@phone_num nvarchar(15) ,
+	@default_adress nchar(10),
+	@card_number bigint
+AS
+declare @id bigint;
+set @id = (select id from [papa].[dbo].[User]
+where login = @login)
+if(@id is null)
+insert into [papa].[dbo].[User]
+([name],[login],[password],[surname],[phone_num],[default_adress],[card_number])
+values(@name, @login, @password, @surname, @phone_num, @default_adress, @card_number)
+else 
+return 0
+GO
+/****** Object:  StoredProcedure [dbo].[DeleteFromFavorites]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[DeleteFromFavorites]
+	@user_id bigint,
+	@advertisment_id bigint
+as
+delete from FavoriteAd
+where user_id = @user_id 
+and advertisement_id = @advertisment_id
+GO
+/****** Object:  StoredProcedure [dbo].[DeleteUser]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[DeleteUser]
+	@id bigint
+AS
+delete from [papa].[dbo].[User]
+where id = @id;
+GO
+/****** Object:  StoredProcedure [dbo].[Myfavotites]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[Myfavotites]
+	@user_id bigint
+as
+	select advertisement_id
+	from FavoriteAd
+	where user_id = @user_id
+GO
+/****** Object:  StoredProcedure [dbo].[propCat]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[propCat]
+
+as
+select  Category.name, Property.name
+from Category,Property,Category_Property
+where Category.id = Category_Property.category_id
+ and Property.id = Category_Property.property_id
+GO
+/****** Object:  StoredProcedure [dbo].[SearchByFilters]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[SearchByFilters]
+	@conditions nvarchar (1000),
+	@category_name nvarchar(50)	
+as 
+
+CREATE TABLE #ad_filter -- table for id`s of advertisment
+(id bigint)
+
+ INSERT INTO #ad_filter (id)
+select id from Advertisement
+
+ create table #condition_table
+	(id bigint IDENTITY(1,1),
+	property nvarchar(50),
+	value nvarchar(50))
+
+	
+
+	declare @conditionDelimeter nvarchar(1) = ','
+	declare @valueDelimiter nvarchar(1) = ':'
+	declare @property nvarchar(50) 
+	declare @value nvarchar(50) 
+
+	
+declare @pos int = charindex(@conditionDelimeter, @conditions)
+declare @posvalue int 
+
+declare @con nvarchar(100)
+    
+while (@pos != 0)
+begin
+  
+    set @con = SUBSTRING(@conditions, 1, @pos-1)
+    
+	 set @posvalue  = charindex(@valueDelimiter, @con)
+	set @property = SUBSTRING(@con, 1, @posvalue-1)
+	set @posvalue = CHARINDEX(@valueDelimiter,@con)
+	set @con = SUBSTRING(@con, @posvalue, LEN(@con))
+	set @value = SUBSTRING(@con, 2, @posvalue+1)
+
+    insert into #condition_table (property,value) values(@property,@value)
+
+    
+    set @conditions = SUBSTRING(@conditions, @pos+1, LEN(@conditions))
+   
+    set @pos = CHARINDEX(@conditionDelimeter,@conditions)
+	end
+	
+	 
+
+declare @property_id bigint;
+declare @category_id bigint;
+
+
+set @category_id = (select id from Category
+where name = @category_name)
+
+
+
+declare @counter int = (select count(property) from #condition_table)
+
+	while (@counter != 0)
+	begin
+
+	set @property = (select property from #condition_table where id = @counter)
+	set @value = (select value from #condition_table where id = @counter)
+	set @property_id = (select id  from Property
+	where name = @property)
+
+	
+	
+
+	
+
+delete from #ad_filter
+where id not in( 
+select  #ad_filter.id
+from #ad_filter
+inner join Value
+on Value.advertisement_id = #ad_filter.id and Value.value = @value
+inner join Category_Property on
+Category_Property.category_id = @category_id
+and Category_Property.property_id = @property_id
+
+ )
+
+ set @counter = @counter-1
+	end
+
+select * from Advertisement
+where id in (
+SELECT * FROM #ad_filter
+)
+--exec SearchByFilters 'color:white,producer:apple,','smartphone'
+GO
+/****** Object:  StoredProcedure [dbo].[searchByName]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[searchByName]
+	@str nvarchar(100)
+as
+	set @str = LTRIM(@str) 
+	set @str = RTRIM(@str)
+	select * from Advertisement
+	where  product_name LIKE  '%' + @str +'%'
+	
+	--exec searchByName '       miband   '
+GO
+/****** Object:  StoredProcedure [dbo].[selectAdByCategory]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[selectAdByCategory]
+	@category_name nvarchar(50)
+as
+
+select distinct 
+ Advertisement.id, Advertisement.product_name, Advertisement .price, Advertisement.description, Advertisement.is_active, Advertisement.date_added,
+Advertisement.adress, Advertisement.avaliable_amount, Advertisement.owner_user_id
+ from Advertisement 
+inner join Value
+on Advertisement.id = Value.advertisement_id
+inner join Category_Property
+on Value.category_property_id = Category_Property.id
+inner join Category
+on Category_Property.category_id = Category.id
+and Category.name = @category_name
+and Advertisement.is_active != 0
+
+--exec selectAdByCategory 'smartphone'
+GO
+/****** Object:  StoredProcedure [dbo].[selectproperties]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[selectproperties]
+	@advertisment_id bigint
+as
+
+declare @category_id bigint;
+
+--category name
+set @category_id = (select  top(1) category.id
+from Category
+inner join Category_Property
+ on category.id = Category_Property.category_id
+inner join Value on 
+Category_Property.id = Value.category_property_id
+and Value.advertisement_id = @advertisment_id);
+
+ select Property.name,Value.value
+ from Property
+ inner join Value on Value.advertisement_id = @advertisment_id
+ inner join Category_Property on Category_Property.id = Value.category_property_id
+ where Property.id = Category_Property.property_id
+
+GO
+/****** Object:  StoredProcedure [dbo].[selectPropertiesNames]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[selectPropertiesNames]
+	@category_name nvarchar(50)
+as
+declare @category_id bigint;
+set @category_id = (select id from Category
+where name = @category_name)
+--SELECT Category.name, Property.name
+--FROM Category
+--INNER JOIN Property ON Category.id=Property.id;
+
+select Property.name, Category.name
+from Category,Property,Category_Property
+where Category.id = Category_Property.category_id
+ and Property.id = Category_Property.property_id
+ and Category.id = @category_id
+ 
+GO
+/****** Object:  StoredProcedure [dbo].[SelectUserId]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[SelectUserId] 
+	@login nvarchar(50),
+	@password nvarchar(50)
+as
+
+select top (1) [id] 
+from  [papa].[dbo].[User]
+where login = @login
+and password = @password
+GO
+/****** Object:  StoredProcedure [dbo].[SelectUserInfo]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[SelectUserInfo]
+	@id bigint
+as
+select * from [papa].[dbo].[User] 
+where id = @id
+GO
+/****** Object:  StoredProcedure [dbo].[UpdateUser]    Script Date: 26-Jun-18 4:54:42 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE PROCEDURE [dbo].[UpdateUser]
+	@id bigint,
+	@name nvarchar(50),
+	@login nvarchar(50),
+	@password nvarchar(50) ,
+	@surname nvarchar(50) ,
+	@phone_num nvarchar(15) ,
+	@default_adress nchar(10),
+	@card_number bigint
+AS
+if (@name  is not null)
+update [papa].[dbo].[User]
+ set name = @name
+ where id = @id
+
+ if (@login  is not null)
+update [papa].[dbo].[User]
+ set login = @login
+ where id = @id
+
+ if (@password  is not null)
+update [papa].[dbo].[User]
+ set password = @password
+ where id = @id
+
+  if (@surname  is not null)
+update [papa].[dbo].[User]
+ set surname = @surname
+ where id = @id
+
+ if (@phone_num  is not null)
+update [papa].[dbo].[User]
+ set phone_num = @phone_num
+ where id = @id
+
+ if (@default_adress  is not null)
+update [papa].[dbo].[User]
+ set default_adress = @default_adress
+ where id = @id
+
+ if (@card_number  is not null)
+update [papa].[dbo].[User]
+ set card_number = @card_number
+ where id = @id
+
+ --exec UpdateUser 13,'name13','hfgh','hdfhfdshserh',NULL,NULL,NULL,NULL
+GO
+USE [master]
+GO
+ALTER DATABASE [papa] SET  READ_WRITE 
+GO
